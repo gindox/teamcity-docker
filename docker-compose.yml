@@ -1,0 +1,62 @@
+version: '3.1'
+ 
+
+# Default ${TEAMCITY_VERSION} is defined in .env file
+
+# ./buildserver_pgdata - Posgres DB data
+# ./data - TeamCity data directory
+# ./teamcity-server-logs1 - logs of primary TeamCity server
+# ./teamcity-server-logs2 - logs of secondary TeamCity server (running-builds node)
+# ./teamcity-server-logs3 - logs of read-only TeamCity server (secondary node)
+# ./teamcity-agent-conf1 - conf directory for the build agent
+
+services:
+  db:
+    image: postgres
+    restart: always
+    ports:
+      - 5433:5432
+    environment:
+      POSTGRES_PASSWORD: aungMEmiNkERankLEGoTaBRe
+      POSTGRES_USER: teamcity
+      POSTGRES_DB: buildserver
+    volumes:
+      - ./buildserver_pgdata:/var/lib/postgresql/data
+
+  teamcity:
+    image: jetbrains/teamcity-server:${TEAMCITY_VERSION}
+    volumes:
+      - ./data:/data/teamcity_server/datadir
+      - ./teamcity-server-logs1:/opt/teamcity/logs
+    ports:
+      - 8111:8111
+
+  teamcity-agent1:
+    image: jetbrains/teamcity-agent:latest
+    environment:
+      SERVER_URL: http://teamcity:8111
+    volumes:
+      - ./teamcity-agent-conf1:/data/teamcity_agent/conf
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  teamcity-agent2:
+    image: jetbrains/teamcity-agent:latest
+    environment:
+      SERVER_URL: http://teamcity:8111
+    volumes:
+      - ./teamcity-agent-conf2:/data/teamcity_agent/conf
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  hub:
+    image: jetbrains/hub:${TEAMCITY_HUB_VERSION}
+    environment:
+      - VIRTUAL_HOST=hub.gindox.com
+      - VIRTUAL_PORT=443
+      - HSTS=off
+    volumes:
+      - ./teamcity-hub/data:/opt/hub/data
+      - ./teamcity-hub/conf:/opt/hub/conf
+      - ./teamcity-hub/logs:/opt/hub/logs
+      - ./teamcity-hub/backups:/opt/hub/backups
+    ports:
+      - 8081:8080
